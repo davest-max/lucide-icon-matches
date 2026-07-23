@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="64" height="64" fill="#333333">
+<g data-name="Assignment Box" clip-path="url(#clip-Assignment_Box)">
+        <g>
+          <path data-name="Path 24908" d="M18,0H2A2.006,2.006,0,0,0,0,2V18a2.006,2.006,0,0,0,2,2H18a2.006,2.006,0,0,0,2-2V2A2.006,2.006,0,0,0,18,0Zm0,18H2V14H6v1a.945.945,0,0,0,1,1h6a.945.945,0,0,0,1-1V14h4Zm0-6H13a.945.945,0,0,0-1,1v1H8V13a.945.945,0,0,0-1-1H2V2H18Z"/>
+          <path data-name="Path 24909" d="M6.4,6.4h12v2H6.4Z" transform="translate(-2.4 -2.4)"/>
+          <path data-name="Path 24910" d="M6.4,12.8h12v2H6.4Z" transform="translate(-2.4 -4.8)"/>
+        </g>
+      </g>
+</svg>

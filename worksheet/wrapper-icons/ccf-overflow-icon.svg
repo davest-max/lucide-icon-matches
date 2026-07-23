@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="64" height="64" fill="#333333">
+<g id="Overflow_Icon" data-name="Overflow Icon" clip-path="url(#clip-Overflow_Icon)">
+        <g id="Overflow_Menu" data-name="Overflow Menu" transform="translate(1 1)">
+          <g id="Group_112030" data-name="Group 112030" transform="translate(0 0)">
+            <path id="Path_13329" data-name="Path 13329" d="M15.938,1.729A1.729,1.729,0,1,1,14.209,0,1.729,1.729,0,0,1,15.938,1.729Z" transform="translate(-2.939 3.641)" fill="#707070"/>
+            <path id="Path_13330" data-name="Path 13330" d="M15.938,14.209a1.729,1.729,0,1,1-1.729-1.729A1.729,1.729,0,0,1,15.938,14.209Z" transform="translate(-2.939 -2.709)" fill="#707070"/>
+            <path id="Path_13331" data-name="Path 13331" d="M15.938,26.689a1.729,1.729,0,1,1-1.729-1.729A1.729,1.729,0,0,1,15.938,26.689Z" transform="translate(-2.939 -9.059)" fill="#707070"/>
+          </g>
+          <g id="Ellipse_4658" data-name="Ellipse 4658" fill="none" stroke="#707070" stroke-width="1" opacity="0">
+            <circle cx="11.5" cy="11.5" r="11.5" stroke="none"/>
+            <circle cx="11.5" cy="11.5" r="11" fill="none"/>
+          </g>
+        </g>
+      </g>
+</svg>

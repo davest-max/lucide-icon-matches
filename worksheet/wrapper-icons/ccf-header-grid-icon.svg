@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="64" height="64" fill="#333333">
+<defs>
+        <clipPath id="clip-Header_Grid">
+          <rect width="24" height="24"/>
+        </clipPath>
+      </defs>
+      <g id="Header_Grid" data-name="Header Grid" clip-path="url(#clip-Header_Grid)">
+        <path id="Rectangle_31_copy_4" data-name="Rectangle 31 copy 4" d="M1333,17h6v6h-6Zm9,0h6v6h-6Zm9,0h6v6h-6Zm-18,9h6v6h-6Zm9,0h6v6h-6Zm9,0h6v6h-6Zm-18,9h6v6h-6Zm9,0h6v6h-6Zm9,0h6v6h-6Z" transform="translate(-1333 -17)" fill-rule="evenodd"/>
+      </g>
+</svg>

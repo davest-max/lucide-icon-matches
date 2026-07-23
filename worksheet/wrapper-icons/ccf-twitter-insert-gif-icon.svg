@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="64" height="64" fill="#333333">
+<g id="ic_insert_gif" clip-path="url(#clip-ic_insert_gif)">
+        <g id="Group_121033" data-name="Group 121033" transform="translate(1.205 1.205)">
+          <g id="Rectangle_37196" data-name="Rectangle 37196" fill="#fff" stroke="#333333" stroke-width="1">
+            <rect width="17.59" height="17.59" rx="3" stroke="none"/>
+            <rect x="0.5" y="0.5" width="16.59" height="16.59" rx="2.5" fill="none"/>
+          </g>
+          <text id="GIF" transform="translate(2.112 11)" font-size="8" font-family="OpenSans-Semibold, Open Sans" font-weight="600"><tspan x="0" y="0">GIF</tspan></text>
+        </g>
+      </g>
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="64" height="64" fill="#333333">
+<g id="ic_close">
+        <rect width="20" height="20" fill="none"/>
+        <g id="Layer_2" data-name="Layer 2" transform="translate(3 3)">
+          <g id="Layer_1" data-name="Layer 1" transform="translate(0 0)">
+            <path d="M7.928,7l5.894-5.894a.611.611,0,0,0,0-.862L13.756.178a.611.611,0,0,0-.862,0L7,6.072,1.106.178a.611.611,0,0,0-.862,0L.178.244a.611.611,0,0,0,0,.862L6.071,7,.178,12.895a.611.611,0,0,0,0,.862l.066.066a.611.611,0,0,0,.862,0L7,7.928l5.894,5.894a.611.611,0,0,0,.862,0l.066-.066a.611.611,0,0,0,0-.862Z" transform="translate(0 0)"/>
+          </g>
+        </g>
+      </g>
+</svg>

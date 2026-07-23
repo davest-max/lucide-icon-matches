@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="64" height="64" fill="#333333">
+<g id="ic_Add_Channel" data-name="ic_Add Channel" clip-path="url(#clip-ic_Add_Channel)">
+        <g id="Group_119869" data-name="Group 119869" transform="translate(-3 -3)" opacity="0.853">
+          <rect id="Rectangle_37572" data-name="Rectangle 37572" width="36" height="36" transform="translate(-3 -3)" fill="gray" opacity="0"/>
+          <path id="plus" d="M19.2,10.2h-7v-7h-2v7h-7v2h7v7h2v-7h7Z" transform="translate(3.8 3.801)" fill="#333333"/>
+        </g>
+      </g>
+</svg>

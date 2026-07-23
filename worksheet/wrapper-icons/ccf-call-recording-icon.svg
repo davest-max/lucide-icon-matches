@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 29 28" width="64" height="64" fill="#333333">
+<g id="Button/Record/plain">
+        <rect x="0.5" width="29" height="28" rx="4" fill="#333333"/>
+        <g id="Record">
+          <g id="Ellipse 4692">
+            <path id="Vector" d="M14.5002 22.1C18.9737 22.1 22.6002 18.4735 22.6002 14C22.6002 9.52649 18.9737 5.9 14.5002 5.9C10.0267 5.9 6.40021 9.52649 6.40021 14C6.40021 18.4735 10.0267 22.1 14.5002 22.1Z" stroke="white" stroke-width="2"/>
+          </g>
+          <path id="Ellipse 4693" d="M14.5 19C17.2614 19 19.5 16.7614 19.5 14C19.5 11.2386 17.2614 9 14.5 9C11.7386 9 9.5 11.2386 9.5 14C9.5 16.7614 11.7386 19 14.5 19Z" fill="white"/>
+        </g>
+      </g>
+</svg>

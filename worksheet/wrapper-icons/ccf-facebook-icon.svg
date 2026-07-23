@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="64" height="64" fill="#333333">
+<g>
+        <g id="Channel_Type"/>+ props.id data-name="Channel Type" transform="translate(3.5 3.551)"&gt;
+          <g data-name="Icon Interaction Type">
+            <path data-name="Path 12742" d="M17,8.5a8.5,8.5,0,1,0-9.828,8.4v-5.94H5.014V8.5H7.172V6.627A3,3,0,0,1,10.383,3.32a13.073,13.073,0,0,1,1.9.166V5.578H11.213A1.228,1.228,0,0,0,9.828,6.906V8.5h2.357l-.377,2.457H9.828V16.9A8.5,8.5,0,0,0,17,8.5Z" fill="#3b5998"/>
+          </g>
+        </g>
+      </svg>

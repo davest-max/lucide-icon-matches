@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="64" height="64" fill="#333333">
+<g id="ic_expand_collapse_assignments">
+        <g id="Group_111917" data-name="Group 111917" transform="translate(3.75 5)">
+          <rect id="Rectangle_37574" data-name="Rectangle 37574" width="16" height="2" transform="translate(0.5)" fill="#526b7a"/>
+          <rect id="Rectangle_37575" data-name="Rectangle 37575" width="10" height="2" transform="translate(6.5 4)" fill="#526b7a"/>
+          <rect id="Rectangle_37576" data-name="Rectangle 37576" width="10" height="2" transform="translate(6.5 8)" fill="#526b7a"/>
+          <rect id="Rectangle_37577" data-name="Rectangle 37577" width="16" height="2" transform="translate(0.5 12)" fill="#526b7a"/>
+          <path id="Polygon_20" data-name="Polygon 20" d="M3.5,0,7,4H0Z" transform="translate(0 10.5) rotate(-90)" fill="#526b7a"/>
+        </g>
+      </g>
+</svg>
