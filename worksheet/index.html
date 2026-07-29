@@ -88,7 +88,7 @@
 <body>
 <header>
 <h1>CXone Agent Workspace — existing icons (Lyra / Lucide replacement worksheet)</h1>
-<p>AW-60964 · 352 icon-library icons + 52 inline (hardcoded) icons = 404 total. The ccf icon at the top of each box is fixed (that's the one being replaced) — below it is the suggested Lucide match (name + thumbnail + confidence). High/Medium = algorithmic name+shape match; Low = best-effort, please review; brand logos are flagged with no forced match. Click "Search Lucide icons…" to look through the full Lucide set and swap in a different match, then use the small dropdown to set its confidence level (marked "(manual)"). Changes persist on reload — undo via "Reset manual overrides". Use the confidence filter chips below. When you're done, use "Download CSV for devs" (a clean spreadsheet of ccf icon → final Lucide match) or "Download updated worksheet" (this whole page with your edits baked in) to share your work — edits made here only live in your browser until you download one of those.</p>
+<p>AW-60964 · 352 icon-library icons + 52 inline (hardcoded) icons = 404 total. The ccf icon at the top of each box is fixed (that's the one being replaced) — below it is the suggested Lucide match (name + thumbnail + confidence). High/Medium = algorithmic name+shape match; Low = best-effort, please review; brand logos are flagged with no forced match. Click "Search Lucide icons…" to look through the full Lucide set and swap in a different match, then use the small dropdown to set its confidence level (marked "(manual)"). Changes persist on reload. If a confidence level ever looks wrong, click "Fix confidence levels" to restore every dropdown to its correct computed value without losing your icon picks — or "Reset icon + confidence overrides" to undo everything. Use the confidence filter chips below. When you're done, use "Download CSV for devs" (a clean spreadsheet of ccf icon → final Lucide match) or "Download updated worksheet" (this whole page with your edits baked in) to share your work — edits made here only live in your browser until you download one of those.</p>
 </header>
 <div class="controls">
 <input id="q" oninput="filter(this.value)" placeholder="Filter by name…" type="text"/>
@@ -100,7 +100,8 @@
 <button class="tier-chip active" data-tier="LOW" onclick="toggleChip(this)">Low</button>
 <button class="tier-chip active" data-tier="NONE" onclick="toggleChip(this)">No match</button>
 <span id="tier-count" style="font-size:12.5px;color:#5d6a79;margin-left:6px;"></span>
-<button onclick="resetAllOverrides()" style="font-size:13px;padding:8px 14px;border:1px solid #c3c5c9;border-radius:6px;background:#fff;cursor:pointer;margin-left:auto;">Reset manual overrides</button>
+<button onclick="resetTierOverridesOnly()" style="font-size:13px;padding:8px 14px;border:1px solid #c3c5c9;border-radius:6px;background:#fff;cursor:pointer;margin-left:auto;">Fix confidence levels</button>
+<button onclick="resetAllOverrides()" style="font-size:13px;padding:8px 14px;border:1px solid #c3c5c9;border-radius:6px;background:#fff;cursor:pointer;">Reset icon + confidence overrides</button>
 </div>
 <div class="export-row" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px;">
 <span style="font-size:13.5px;color:#5d6a79;">Share your work:</span>
@@ -2193,6 +2194,26 @@ function setTierOverride(selectEl){
     if (newTier === original) STORE.removeItem(OVERRIDE_PREFIX + id);
     else STORE.setItem(OVERRIDE_PREFIX + id, newTier);
   }
+  applyFilters();
+}
+
+function resetTierOverridesOnly(){
+  // Restores each cell's confidence dropdown/badge back to its original
+  // computed tier, clearing only stray confidence overrides (e.g. left over
+  // from earlier testing). Icon picks (which Lucide match is shown) are
+  // left completely untouched.
+  document.querySelectorAll('.cell').forEach(cell=>{
+    const original = cell.getAttribute('data-original-tier');
+    const id = cell.getAttribute('data-id');
+    const hadOverride = STORE ? !!STORE.getItem(OVERRIDE_PREFIX + id) : false;
+    const sel = cell.querySelector('.tier-override-select');
+    const current = sel ? sel.value : original;
+    if (hadOverride || current !== original) {
+      if (sel) sel.value = original;
+      paintTier(cell, original, false);
+      if (STORE) STORE.removeItem(OVERRIDE_PREFIX + id);
+    }
+  });
   applyFilters();
 }
 
