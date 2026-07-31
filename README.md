@@ -33,6 +33,8 @@ python3 scripts/fill_worksheet.py        # rebuild worksheet/index.html
 
 Requires the original source icon SVGs (`wrapper-icons/`, `inline-svgs/`) and a local copy of `lucide-static` icons — not included here to keep the repo lean; ask in the team channel if you need to regenerate from scratch.
 
+**Important:** rebuilding `worksheet/index.html` always starts from the raw algorithmic matches — by itself it has no knowledge of anyone's in-browser edits. `fill_worksheet.py` now supports loading a reviewed CSV export (the "Download CSV for devs" file) and applying its final match + confidence for each icon as the new published baseline, so review work isn't wiped out by later rebuilds. In practice: whenever there's a new tool/UI update to ship, share your latest CSV export first so it can be folded in as part of the same rebuild.
+
 ## Notes on confidence tiers
 
 - **High** — strong name/tag match, or strong name match + strong visual match.
