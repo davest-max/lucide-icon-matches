@@ -157,7 +157,10 @@ def build_suggestion_html(soup, r, override=None):
     wrap = soup.new_tag("div", **{"class": "lucide-match"})
     if override:
         tier = override["tier"]
-        lucide_name = override["lucide"]
+        # Custom always means "keep the existing custom icon" — show the plain
+        # placeholder/note treatment even if a Lucide candidate was noted during
+        # review, so every Custom-tagged tile looks and reads the same way.
+        lucide_name = None if tier == "CUSTOM" else override["lucide"]
     else:
         tier = r["tier"]
         lucide_name = None if tier == "NONE" else r["top_matches"][0]["lucide"]
@@ -424,11 +427,16 @@ function applyStoredOverrides(){{
   if (!STORE) return;
   document.querySelectorAll('.cell').forEach(cell=>{{
     const id = cell.getAttribute('data-id');
+    const original = cell.getAttribute('data-original-tier');
     const saved = STORE.getItem(OVERRIDE_PREFIX + id);
     if (saved){{
       const sel = cell.querySelector('.tier-override-select');
       if (sel) sel.value = saved;
-      paintTier(cell, saved, true);
+      // Only flag as a manual override if it actually differs from the
+      // published baseline — otherwise a leftover browser entry from before
+      // a reviewed export was merged in would falsely tag it "(manual)".
+      paintTier(cell, saved, saved !== original);
+      if (saved === original) STORE.removeItem(OVERRIDE_PREFIX + id);
     }}
   }});
 }}
@@ -510,7 +518,11 @@ function applyStoredIconOverrides(){{
   document.querySelectorAll('.cell').forEach(cell=>{{
     const id = cell.getAttribute('data-id');
     const saved = STORE.getItem(NAME_OVERRIDE_PREFIX + id);
-    if (saved) applyIconChoice(cell, saved, true);
+    if (saved){{
+      const originalIcon = cell.getAttribute('data-original-icon') || '';
+      applyIconChoice(cell, saved, saved !== originalIcon);
+      if (saved === originalIcon) STORE.removeItem(NAME_OVERRIDE_PREFIX + id);
+    }}
   }});
 }}
 
