@@ -1,10 +1,32 @@
-import json, os, re, shutil, sys
+import csv, json, os, re, shutil, sys
 from bs4 import BeautifulSoup
 sys.path.insert(0, "/sessions/epic-loving-franklin/work")
 from repair_and_render import repair_svg_bytes
 
 SRC_HTML = "/sessions/epic-loving-franklin/mnt/uploads/index.html"
 RESULTS = "/sessions/epic-loving-franklin/work/match_results.json"
+# Dave's exported "Download CSV for devs" file, if he's shared one — when present,
+# its final match / confidence for each icon becomes the new published baseline,
+# so his review work survives every subsequent rebuild instead of being wiped out.
+REVIEWED_CSV = "/sessions/epic-loving-franklin/work/reviewed_overrides.csv"
+
+def load_reviewed_overrides(path):
+    if not path or not os.path.exists(path):
+        return {}
+    overrides = {}
+    with open(path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            source = (row.get("source") or "").strip()
+            ccf = (row.get("ccf_icon_file") or "").strip()
+            if not ccf:
+                continue
+            tier = (row.get("confidence") or "").strip().upper()
+            if tier not in ("HIGH", "MEDIUM", "LOW", "NONE", "CUSTOM"):
+                continue
+            lucide = (row.get("final_lucide_match") or "").strip() or None
+            overrides[(source, ccf)] = {"tier": tier, "lucide": lucide}
+    print(f"Loaded {len(overrides)} reviewed overrides from {path}")
+    return overrides
 LUCIDE_SVG_DIR = "/sessions/epic-loving-franklin/node_modules/lucide-static/icons"
 LUCIDE_TAGS_PATH = "/sessions/epic-loving-franklin/node_modules/lucide-static/tags.json"
 SRC_WRAPPER_DIR = "/sessions/epic-loving-franklin/icons/wrapper-icons/wrapper-icons"
@@ -29,6 +51,7 @@ TIER_COLORS = {
     "MEDIUM": ("#fff8e1", "#8a6d00", "Medium — please verify"),
     "LOW": ("#fdeaea", "#a13a3a", "Low — best effort, review"),
     "NONE": ("#eceff1", "#455a64", "No Lucide equivalent"),
+    "CUSTOM": ("#f3ecfa", "#6b3fa0", "Custom icon"),
 }
 
 def label_for_src(src):
@@ -81,12 +104,12 @@ def copy_all_lucide_icons_and_build_index():
     print(f"Copied full Lucide set: {len(names)} icons")
     return index
 
-TIER_OPTIONS = [("HIGH", "High"), ("MEDIUM", "Medium"), ("LOW", "Low"), ("NONE", "No match")]
+TIER_OPTIONS = [("HIGH", "High"), ("MEDIUM", "Medium"), ("LOW", "Low"), ("NONE", "No match"), ("CUSTOM", "Custom")]
 
 def build_tier_select(soup, current_tier):
     sel = soup.new_tag("select", **{"class": "tier-override-select", "onchange": "setTierOverride(this)"})
-    sel["style"] = ("font-size:9px;padding:1px 3px;border-radius:4px;border:1px solid #c3c5c9;"
-                     "background:#fff;margin-top:3px;width:100%;")
+    sel["style"] = ("font-size:12px;padding:6px 8px;border-radius:6px;border:1px solid #c3c5c9;"
+                     "background:#fff;margin-top:6px;width:100%;cursor:pointer;")
     for val, label in TIER_OPTIONS:
         opt = soup.new_tag("option", value=val)
         opt.string = label
@@ -98,14 +121,14 @@ def build_tier_select(soup, current_tier):
 def build_change_icon_button(soup):
     btn = soup.new_tag("button", **{"class": "change-icon-btn", "type": "button",
                                      "onclick": "openPicker(this)"})
-    btn["style"] = ("font-size:9px;padding:2px 6px;border-radius:4px;border:1px solid #166cca;"
-                     "background:#fff;color:#166cca;cursor:pointer;margin-top:3px;width:100%;")
+    btn["style"] = ("font-size:12px;padding:7px 10px;border-radius:6px;border:1px solid #166cca;"
+                     "background:#fff;color:#166cca;cursor:pointer;margin-top:6px;width:100%;font-weight:600;")
     btn.string = "Search Lucide icons…"
     return btn
 
 def build_suggestion_label(soup):
     label = soup.new_tag("div")
-    label["style"] = "font-size:8.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#8a97a3;margin-bottom:3px;"
+    label["style"] = "font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#8a97a3;margin-bottom:4px;"
     label.string = "Suggested Lucide match"
     return label
 
@@ -115,52 +138,61 @@ def build_icon_row(soup, lucide_name, visible):
     never has to special-case building this structure — it only ever updates
     these two elements, never touches the ccf source icon above."""
     row = soup.new_tag("div", **{"class": "suggestion-row",
-                                  "style": "display:flex;align-items:center;gap:6px;" + ("" if visible else "display:none;")})
+                                  "style": "display:flex;align-items:center;gap:8px;" + ("" if visible else "display:none;")})
     img = soup.new_tag("img", **{"class": "suggestion-img"},
                         src=(f"lucide-icons/{lucide_name}.svg" if lucide_name else ""),
-                        style="width:22px;height:22px;flex:0 0 auto;")
+                        style="width:30px;height:30px;flex:0 0 auto;")
     row.append(img)
-    text = soup.new_tag("div", **{"style": "font-size:11px;line-height:1.3;"})
+    text = soup.new_tag("div", **{"style": "font-size:13.5px;line-height:1.3;"})
     name_span = soup.new_tag("span", **{"class": "suggestion-name", "style": "font-weight:600;"})
     name_span.string = lucide_name or ""
     text.append(name_span)
     row.append(text)
     return row
 
-def build_suggestion_html(soup, r):
+def build_suggestion_html(soup, r, override=None):
+    """override, when given, is {'tier': 'HIGH'/'MEDIUM'/'LOW'/'NONE'/'CUSTOM', 'lucide': name-or-None}
+    reflecting Dave's own reviewed CSV — takes the place of the algorithmic tier/match for this cell,
+    becoming the new published baseline instead of an in-browser-only override."""
     wrap = soup.new_tag("div", **{"class": "lucide-match"})
-    tier = r["tier"]
+    if override:
+        tier = override["tier"]
+        lucide_name = override["lucide"]
+    else:
+        tier = r["tier"]
+        lucide_name = None if tier == "NONE" else r["top_matches"][0]["lucide"]
     bg, fg, tier_label = TIER_COLORS[tier]
     wrap["style"] = f"background:{bg};border-radius:6px;padding:6px;margin-top:4px;width:100%;box-sizing:border-box;"
     wrap.append(build_suggestion_label(soup))
 
-    if tier == "NONE":
+    if not lucide_name:
         wrap.append(build_icon_row(soup, None, visible=False))
         badge = soup.new_tag("div", **{"class": "tier-badge"})
-        badge["style"] = f"color:{fg};font-size:10px;font-weight:600;"
-        badge.string = f"No Lucide equivalent — {r['brand']}"
+        badge["style"] = f"color:{fg};font-size:12.5px;font-weight:600;"
+        if tier == "NONE" and not override:
+            badge.string = f"No Lucide equivalent — {r['brand']}"
+        else:
+            badge.string = tier_label
         wrap.append(badge)
         note = soup.new_tag("div", **{"class": "icon-note"})
-        note["style"] = "font-size:10px;color:#555;margin-top:2px;"
+        note["style"] = "font-size:12px;color:#555;margin-top:3px;"
         note.string = "Keep existing custom icon — or search below."
         wrap.append(note)
         wrap.append(build_change_icon_button(soup))
         wrap.append(build_tier_select(soup, tier))
         return wrap, None
 
-    top = r["top_matches"][0]
-    lucide_name = top["lucide"]
     wrap.append(build_icon_row(soup, lucide_name, visible=True))
 
     badge = soup.new_tag("div", **{"class": "tier-badge"})
-    badge["style"] = f"color:{fg};font-size:9px;font-weight:600;margin-top:2px;"
+    badge["style"] = f"color:{fg};font-size:12px;font-weight:600;margin-top:4px;"
     badge.string = tier_label
     wrap.append(badge)
 
-    if len(r["top_matches"]) > 1:
+    if not override and len(r["top_matches"]) > 1:
         alt = r["top_matches"][1]["lucide"]
         alt_div = soup.new_tag("div", **{"class": "icon-note"})
-        alt_div["style"] = "font-size:9px;color:#777;margin-top:1px;"
+        alt_div["style"] = "font-size:11.5px;color:#777;margin-top:2px;"
         alt_div.string = f"alt: {alt}"
         wrap.append(alt_div)
 
@@ -171,8 +203,17 @@ def build_suggestion_html(soup, r):
 
 CHIP_STYLE_BLOCK = """
 <style>
+  /* --- larger tile content: overrides the base worksheet stylesheet above --- */
+  .controls input { font-size:15px !important; padding:10px 12px !important; }
+  .grid { grid-template-columns:repeat(auto-fill,minmax(224px,1fr)) !important; gap:16px !important; }
+  .cell { padding:16px !important; gap:9px !important; }
+  .preview { width:56px !important; height:56px !important; }
+  .preview img { width:36px !important; height:36px !important; }
+  .name { font-size:13.5px !important; }
+  .replace { font-size:13px !important; min-height:28px !important; padding:6px 8px !important; }
+
   .tier-chip {
-    font-size: 12px; font-weight: 600; padding: 5px 14px; border-radius: 999px;
+    font-size: 13.5px; font-weight: 600; padding: 8px 18px; border-radius: 999px;
     cursor: pointer; border: 1.5px solid; background: #fff; transition: all .1s ease;
     user-select: none;
   }
@@ -184,10 +225,12 @@ CHIP_STYLE_BLOCK = """
   .tier-chip[data-tier="LOW"].active    { background:#a13a3a; color:#fff; }
   .tier-chip[data-tier="NONE"]   { border-color:#455a64; color:#455a64; }
   .tier-chip[data-tier="NONE"].active   { background:#455a64; color:#fff; }
+  .tier-chip[data-tier="CUSTOM"]   { border-color:#6b3fa0; color:#6b3fa0; }
+  .tier-chip[data-tier="CUSTOM"].active   { background:#6b3fa0; color:#fff; }
   .tier-chip:not(.active) { opacity: .55; }
   .tier-badge.manual-override::after { content: " (manual)"; font-weight: 400; font-style: italic; opacity: .8; }
   .tier-override-select:focus { outline: 2px solid #166cca; }
-  .icon-changed-flag { font-size: 9px; font-style: italic; color: #166cca; margin-top: 2px; }
+  .icon-changed-flag { font-size: 11px; font-style: italic; color: #166cca; margin-top: 4px; }
   .change-icon-btn:hover { background: #eaf3fb; }
 
   #icon-picker-overlay {
@@ -196,32 +239,32 @@ CHIP_STYLE_BLOCK = """
   }
   #icon-picker-overlay.open { display: flex; }
   #icon-picker-modal {
-    background: #fff; border-radius: 10px; width: 100%; max-width: 760px; max-height: 82vh;
+    background: #fff; border-radius: 10px; width: 100%; max-width: 820px; max-height: 82vh;
     display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.25);
   }
   #icon-picker-header {
-    padding: 14px 18px; border-bottom: 1px solid #e4e7eb; display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px; border-bottom: 1px solid #e4e7eb; display: flex; align-items: center; gap: 10px;
   }
   #icon-picker-header input {
-    flex: 1; padding: 8px 10px; border: 1px solid #c3c5c9; border-radius: 6px; font-size: 14px;
+    flex: 1; padding: 11px 12px; border: 1px solid #c3c5c9; border-radius: 6px; font-size: 15px;
   }
-  #icon-picker-header .current-preview { display:flex; align-items:center; gap:6px; font-size:12px; color:#5d6a79; }
+  #icon-picker-header .current-preview { display:flex; align-items:center; gap:6px; font-size:13px; color:#5d6a79; }
   #icon-picker-close {
-    border: none; background: none; font-size: 20px; cursor: pointer; color: #5d6a79; line-height: 1;
-    padding: 4px 8px;
+    border: none; background: none; font-size: 24px; cursor: pointer; color: #5d6a79; line-height: 1;
+    padding: 6px 10px;
   }
   #icon-picker-results {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px;
-    padding: 14px 18px; overflow-y: auto;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px;
+    padding: 16px 20px; overflow-y: auto;
   }
   .picker-item {
-    border: 1px solid #e4e7eb; border-radius: 8px; padding: 8px 4px; display: flex; flex-direction: column;
-    align-items: center; gap: 4px; cursor: pointer; background: #fff; text-align: center;
+    border: 1px solid #e4e7eb; border-radius: 8px; padding: 11px 6px; display: flex; flex-direction: column;
+    align-items: center; gap: 6px; cursor: pointer; background: #fff; text-align: center;
   }
   .picker-item:hover { background: #eaf3fb; border-color: #166cca; }
-  .picker-item img { width: 26px; height: 26px; }
-  .picker-item span { font-size: 9.5px; color: #2a2d32; word-break: break-all; line-height: 1.2; }
-  #icon-picker-status { padding: 6px 18px 12px; font-size: 11px; color: #5d6a79; }
+  .picker-item img { width: 32px; height: 32px; }
+  .picker-item span { font-size: 11px; color: #2a2d32; word-break: break-all; line-height: 1.25; }
+  #icon-picker-status { padding: 8px 20px 14px; font-size: 12.5px; color: #5d6a79; }
 </style>
 """
 
@@ -240,20 +283,22 @@ PICKER_MODAL_HTML = """
 """
 
 TIER_FILTER_UI = """
-<div class="tier-filters" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
-  <span style="font-size:12px;color:#5d6a79;">Show confidence:</span>
+<div class="tier-filters" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px;">
+  <span style="font-size:13.5px;color:#5d6a79;">Show confidence:</span>
   <button class="tier-chip active" data-tier="HIGH" onclick="toggleChip(this)">High</button>
   <button class="tier-chip active" data-tier="MEDIUM" onclick="toggleChip(this)">Medium</button>
   <button class="tier-chip active" data-tier="LOW" onclick="toggleChip(this)">Low</button>
   <button class="tier-chip active" data-tier="NONE" onclick="toggleChip(this)">No match</button>
-  <span id="tier-count" style="font-size:11px;color:#5d6a79;margin-left:6px;"></span>
-  <button onclick="resetAllOverrides()" style="font-size:11px;padding:4px 10px;border:1px solid #c3c5c9;border-radius:4px;background:#fff;cursor:pointer;margin-left:auto;">Reset manual overrides</button>
+  <button class="tier-chip active" data-tier="CUSTOM" onclick="toggleChip(this)">Custom</button>
+  <span id="tier-count" style="font-size:12.5px;color:#5d6a79;margin-left:6px;"></span>
+  <button onclick="resetTierOverridesOnly()" style="font-size:13px;padding:8px 14px;border:1px solid #c3c5c9;border-radius:6px;background:#fff;cursor:pointer;margin-left:auto;">Fix confidence levels</button>
+  <button onclick="resetAllOverrides()" style="font-size:13px;padding:8px 14px;border:1px solid #c3c5c9;border-radius:6px;background:#fff;cursor:pointer;">Reset icon + confidence overrides</button>
 </div>
-<div class="export-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
-  <span style="font-size:12px;color:#5d6a79;">Share your work:</span>
-  <button onclick="exportCsv()" style="font-size:12px;padding:5px 12px;border:1px solid #166cca;border-radius:5px;background:#166cca;color:#fff;cursor:pointer;font-weight:600;">Download CSV for devs</button>
-  <button onclick="exportHtml()" style="font-size:12px;padding:5px 12px;border:1px solid #166cca;border-radius:5px;background:#fff;color:#166cca;cursor:pointer;font-weight:600;">Download updated worksheet (.html)</button>
-  <span style="font-size:10.5px;color:#8a97a3;">CSV = one row per icon with the final match + confidence. HTML = this whole page, edits baked in, to send or reopen anywhere.</span>
+<div class="export-row" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px;">
+  <span style="font-size:13.5px;color:#5d6a79;">Share your work:</span>
+  <button onclick="exportCsv()" style="font-size:14px;padding:8px 16px;border:1px solid #166cca;border-radius:6px;background:#166cca;color:#fff;cursor:pointer;font-weight:600;">Download CSV for devs</button>
+  <button onclick="exportHtml()" style="font-size:14px;padding:8px 16px;border:1px solid #166cca;border-radius:6px;background:#fff;color:#166cca;cursor:pointer;font-weight:600;">Download updated worksheet (.html)</button>
+  <span style="font-size:12px;color:#8a97a3;">CSV = one row per icon with the final match + confidence. HTML = this whole page, edits baked in, to send or reopen anywhere.</span>
 </div>
 """
 
@@ -262,9 +307,10 @@ TIER_LABEL_TEXT = {
     "MEDIUM": "Medium — please verify",
     "LOW": "Low — best effort, review",
     "NONE": "No Lucide equivalent",
+    "CUSTOM": "Custom icon",
 }
-TIER_COLOR_TEXT = {"HIGH": "#1e7e34", "MEDIUM": "#8a6d00", "LOW": "#a13a3a", "NONE": "#455a64"}
-TIER_BG_TEXT = {"HIGH": "#e6f4ea", "MEDIUM": "#fff8e1", "LOW": "#fdeaea", "NONE": "#eceff1"}
+TIER_COLOR_TEXT = {"HIGH": "#1e7e34", "MEDIUM": "#8a6d00", "LOW": "#a13a3a", "NONE": "#455a64", "CUSTOM": "#6b3fa0"}
+TIER_BG_TEXT = {"HIGH": "#e6f4ea", "MEDIUM": "#fff8e1", "LOW": "#fdeaea", "NONE": "#eceff1", "CUSTOM": "#f3ecfa"}
 
 NEW_FILTER_SCRIPT = f"""
 const TIER_LABELS = {json.dumps(TIER_LABEL_TEXT)};
@@ -324,6 +370,26 @@ function setTierOverride(selectEl){{
     if (newTier === original) STORE.removeItem(OVERRIDE_PREFIX + id);
     else STORE.setItem(OVERRIDE_PREFIX + id, newTier);
   }}
+  applyFilters();
+}}
+
+function resetTierOverridesOnly(){{
+  // Restores each cell's confidence dropdown/badge back to its original
+  // computed tier, clearing only stray confidence overrides (e.g. left over
+  // from earlier testing). Icon picks (which Lucide match is shown) are
+  // left completely untouched.
+  document.querySelectorAll('.cell').forEach(cell=>{{
+    const original = cell.getAttribute('data-original-tier');
+    const id = cell.getAttribute('data-id');
+    const hadOverride = STORE ? !!STORE.getItem(OVERRIDE_PREFIX + id) : false;
+    const sel = cell.querySelector('.tier-override-select');
+    const current = sel ? sel.value : original;
+    if (hadOverride || current !== original) {{
+      if (sel) sel.value = original;
+      paintTier(cell, original, false);
+      if (STORE) STORE.removeItem(OVERRIDE_PREFIX + id);
+    }}
+  }});
   applyFilters();
 }}
 
@@ -511,13 +577,15 @@ def main():
     os.makedirs(OUT_LUCIDE_DIR, exist_ok=True)
 
     export_repaired_source_icons()
+    reviewed = load_reviewed_overrides(REVIEWED_CSV)
 
     with open(SRC_HTML, encoding="utf-8") as f:
         soup = BeautifulSoup(f.read(), "html.parser")
 
     used_lucide = set()
     matched, unmatched = 0, 0
-    tier_counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0, "NONE": 0}
+    reviewed_applied = 0
+    tier_counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0, "NONE": 0, "CUSTOM": 0}
 
     for cell in soup.select(".cell"):
         img = cell.select_one(".preview img")
@@ -531,16 +599,26 @@ def main():
             unmatched += 1
             continue
         matched += 1
-        cell["data-tier"] = r["tier"]
-        cell["data-original-tier"] = r["tier"]
+
+        override = reviewed.get((label, stem))
+        if override:
+            reviewed_applied += 1
+            eff_tier = override["tier"]
+        else:
+            eff_tier = r["tier"]
+
+        cell["data-tier"] = eff_tier
+        cell["data-original-tier"] = eff_tier
         cell["data-id"] = f"{r['label']}:{r['raw_name']}"
         cell["data-original-icon"] = ""
-        tier_counts[r["tier"]] += 1
-        suggestion, lname = build_suggestion_html(soup, r)
+        tier_counts[eff_tier] += 1
+        suggestion, lname = build_suggestion_html(soup, r, override=override)
         if lname:
             used_lucide.add(lname)
             replace_div.string = lname
             cell["data-original-icon"] = lname
+        elif eff_tier == "CUSTOM":
+            replace_div["data-ph"] = "Custom icon — keep as-is"
         else:
             replace_div["data-ph"] = f"No Lucide equivalent ({r['brand']}) — keep custom"
         replace_div.insert_after(suggestion)
@@ -555,8 +633,13 @@ def main():
             "algorithmic name+shape match; Low = best-effort, please review; brand logos are "
             "flagged with no forced match. Click \"Search Lucide icons…\" to look through the "
             "full Lucide set and swap in a different match, then use the small dropdown to set "
-            "its confidence level (marked \"(manual)\"). Changes persist on reload — undo via "
-            "\"Reset manual overrides\". Use the confidence filter chips below. When you're done, "
+            "its confidence level, or mark it \"Custom\" if it should stay a custom (non-Lucide) "
+            "icon — that files it under the Custom Icons filter chip instead. Changes persist on "
+            "reload. If a confidence "
+            "level ever looks wrong, click \"Fix confidence levels\" to restore every dropdown to "
+            "its correct computed value without losing your icon picks — or \"Reset icon + "
+            "confidence overrides\" to undo everything. Use the confidence filter chips below. "
+            "When you're done, "
             "use \"Download CSV for devs\" (a clean spreadsheet of ccf icon → final Lucide match) "
             "or \"Download updated worksheet\" (this whole page with your edits baked in) to "
             "share your work — edits made here only live in your browser until you download one "
@@ -594,7 +677,7 @@ def main():
     with open(OUT_HTML, "w", encoding="utf-8") as f:
         f.write(str(soup))
 
-    print(f"Matched cells: {matched}, unmatched (no lookup): {unmatched}, suggestions used: {len(used_lucide)}")
+    print(f"Matched cells: {matched}, unmatched (no lookup): {unmatched}, suggestions used: {len(used_lucide)}, reviewed overrides applied: {reviewed_applied}")
     print("Tier counts:", tier_counts)
 
 if __name__ == "__main__":
