@@ -157,10 +157,10 @@ def build_suggestion_html(soup, r, override=None):
     wrap = soup.new_tag("div", **{"class": "lucide-match"})
     if override:
         tier = override["tier"]
-        # Custom always means "keep the existing custom icon" — show the plain
-        # placeholder/note treatment even if a Lucide candidate was noted during
-        # review, so every Custom-tagged tile looks and reads the same way.
-        lucide_name = None if tier == "CUSTOM" else override["lucide"]
+        # Custom and No-match both mean "no suggested Lucide icon should show" —
+        # ignore any stray text left in the match column (e.g. a note typed into
+        # the wrong field) so it never renders as a broken image/fake icon name.
+        lucide_name = None if tier in ("CUSTOM", "NONE") else override["lucide"]
     else:
         tier = r["tier"]
         lucide_name = None if tier == "NONE" else r["top_matches"][0]["lucide"]
@@ -631,8 +631,15 @@ def main():
             cell["data-original-icon"] = lname
         elif eff_tier == "CUSTOM":
             replace_div["data-ph"] = "Custom icon — keep as-is"
-        else:
+        elif eff_tier == "NONE" and r["tier"] == "NONE":
+            # The algorithm's own brand detection applies here — whether this
+            # row came through untouched or was confirmed as NONE by review,
+            # r['brand'] reflects the actual algorithmic reasoning.
             replace_div["data-ph"] = f"No Lucide equivalent ({r['brand']}) — keep custom"
+        else:
+            # Reclassified to No Match by review from a different original tier —
+            # r['brand'] isn't meaningful here, so keep the text generic.
+            replace_div["data-ph"] = "No Lucide equivalent — keep custom"
         replace_div.insert_after(suggestion)
 
     # header copy
