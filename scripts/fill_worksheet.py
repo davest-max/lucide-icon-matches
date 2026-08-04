@@ -24,7 +24,8 @@ def load_reviewed_overrides(path):
             if tier not in ("HIGH", "MEDIUM", "LOW", "NONE", "CUSTOM"):
                 continue
             lucide = (row.get("final_lucide_match") or "").strip() or None
-            overrides[(source, ccf)] = {"tier": tier, "lucide": lucide}
+            note = (row.get("note") or "").strip()
+            overrides[(source, ccf)] = {"tier": tier, "lucide": lucide, "note": note}
     print(f"Loaded {len(overrides)} reviewed overrides from {path}")
     return overrides
 LUCIDE_SVG_DIR = "/sessions/epic-loving-franklin/node_modules/lucide-static/icons"
@@ -150,11 +151,21 @@ def build_icon_row(soup, lucide_name, visible):
     row.append(text)
     return row
 
+def build_note_input(soup, note_text):
+    inp = soup.new_tag("input", **{"class": "icon-note-input", "type": "text",
+                                    "placeholder": "Note (optional)", "oninput": "saveNote(this)"})
+    inp["style"] = ("font-size:12px;padding:6px 8px;border-radius:6px;border:1px solid #c3c5c9;"
+                     "background:#fff;margin-top:6px;width:100%;box-sizing:border-box;")
+    if note_text:
+        inp["value"] = note_text
+    return inp
+
 def build_suggestion_html(soup, r, override=None):
-    """override, when given, is {'tier': 'HIGH'/'MEDIUM'/'LOW'/'NONE'/'CUSTOM', 'lucide': name-or-None}
-    reflecting Dave's own reviewed CSV — takes the place of the algorithmic tier/match for this cell,
-    becoming the new published baseline instead of an in-browser-only override."""
+    """override, when given, is {'tier': 'HIGH'/'MEDIUM'/'LOW'/'NONE'/'CUSTOM', 'lucide': name-or-None,
+    'note': text-or-''} reflecting Dave's own reviewed CSV — takes the place of the algorithmic
+    tier/match for this cell, becoming the new published baseline instead of an in-browser-only override."""
     wrap = soup.new_tag("div", **{"class": "lucide-match"})
+    note_text = (override or {}).get("note", "")
     if override:
         tier = override["tier"]
         # Custom and No-match both mean "no suggested Lucide icon should show" —
@@ -183,6 +194,7 @@ def build_suggestion_html(soup, r, override=None):
         wrap.append(note)
         wrap.append(build_change_icon_button(soup))
         wrap.append(build_tier_select(soup, tier))
+        wrap.append(build_note_input(soup, note_text))
         return wrap, None
 
     wrap.append(build_icon_row(soup, lucide_name, visible=True))
@@ -201,6 +213,7 @@ def build_suggestion_html(soup, r, override=None):
 
     wrap.append(build_change_icon_button(soup))
     wrap.append(build_tier_select(soup, tier))
+    wrap.append(build_note_input(soup, note_text))
 
     return wrap, lucide_name
 
@@ -419,6 +432,9 @@ function resetAllOverrides(){{
       if (flag) flag.remove();
       if (replaceBox) replaceBox.textContent = '';
     }}
+    const noteInput = cell.querySelector('.icon-note-input');
+    if (noteInput) noteInput.value = noteInput.defaultValue;
+    if (STORE) STORE.removeItem(NOTE_PREFIX + id);
   }});
   applyFilters();
 }}
@@ -526,6 +542,26 @@ function applyStoredIconOverrides(){{
   }});
 }}
 
+const NOTE_PREFIX = 'iconNote::';
+function saveNote(inputEl){{
+  const cell = inputEl.closest('.cell');
+  const id = cell.getAttribute('data-id');
+  if (!STORE) return;
+  if (inputEl.value) STORE.setItem(NOTE_PREFIX + id, inputEl.value);
+  else STORE.removeItem(NOTE_PREFIX + id);
+}}
+function applyStoredNotes(){{
+  if (!STORE) return;
+  document.querySelectorAll('.cell').forEach(cell=>{{
+    const id = cell.getAttribute('data-id');
+    const saved = STORE.getItem(NOTE_PREFIX + id);
+    if (saved != null){{
+      const input = cell.querySelector('.icon-note-input');
+      if (input) input.value = saved;
+    }}
+  }});
+}}
+
 document.addEventListener('keydown', (e) => {{
   if (e.key === 'Escape') closePicker();
 }});
@@ -558,7 +594,10 @@ function exportCsv(){{
     const isManualIcon = !!cell.querySelector('.icon-changed-flag');
     const replaceBox = cell.querySelector('.replace');
     const finalMatch = replaceBox ? replaceBox.textContent.trim() : '';
-    const note = (tier === 'NONE' && !finalMatch) ? badgeText : '';
+    const noteInput = cell.querySelector('.icon-note-input');
+    const userNote = noteInput ? noteInput.value.trim() : '';
+    const autoNote = (tier === 'NONE' && !finalMatch && !userNote) ? badgeText : '';
+    const note = userNote || autoNote;
     rows.push([ccfName, source, finalMatch, tier, isManualTier ? 'yes':'no', isManualIcon ? 'yes':'no', note]);
   }});
   const csv = rows.map(r => r.map(csvEscape).join(',')).join('\\n');
@@ -579,6 +618,7 @@ function exportHtml(){{
 document.addEventListener('DOMContentLoaded', () => {{
   applyStoredIconOverrides();
   applyStoredOverrides();
+  applyStoredNotes();
   applyFilters();
 }});
 """
@@ -653,7 +693,9 @@ def main():
             "flagged with no forced match. Click \"Search Lucide icons…\" to look through the "
             "full Lucide set and swap in a different match, then use the small dropdown to set "
             "its confidence level, or mark it \"Custom\" if it should stay a custom (non-Lucide) "
-            "icon — that files it under the Custom Icons filter chip instead. Changes persist on "
+            "icon — that files it under the Custom Icons filter chip instead. Use the small text "
+            "box below that to leave a note on any icon (e.g. why it's flagged, or context for "
+            "devs) — it's included in the CSV export. Changes persist on "
             "reload. If a confidence "
             "level ever looks wrong, click \"Fix confidence levels\" to restore every dropdown to "
             "its correct computed value without losing your icon picks — or \"Reset icon + "
