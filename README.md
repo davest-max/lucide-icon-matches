@@ -9,7 +9,8 @@ Matches custom "ccf" icons used in the Agent Workspace app to their closest [Luc
   - `repair_and_render.py` — repairs malformed source SVGs and renders them to PNG
   - `build_lucide_masks.py` / `build_lucide_index.py` — precompute Lucide icon shape masks and name/tag indexes used for matching
   - `match_icons.py` — the matching engine (name/tag scoring + visual shape similarity) — outputs `match_results.json`
-  - `fill_worksheet.py` — builds the final `worksheet/index.html` from the match results
+  - `fill_worksheet.py` — builds the final `worksheet/index.html` from the match results, plus the New-category icons (see below)
+  - `new_icons_baseline.json` — the 176 icons discovered outside the original 404 (Material-UI components, repo asset SVGs, data-URI icons, other components). No source SVG files of our own for these — each entry carries its own preview image (usually an inline data-URI) captured once, so the pipeline doesn't need repo access to render them.
 - **`exports/`** — drop zone for exports downloaded from the worksheet (see workflow below). Empty until someone exports.
 
 ## Review workflow
@@ -41,5 +42,9 @@ Requires the original source icon SVGs (`wrapper-icons/`, `inline-svgs/`) and a 
 - **Medium** — moderate name or visual signal.
 - **Low** — weak signal either way; check carefully.
 - **No match** — likely a custom brand mark or concept with no Lucide equivalent (flagged, not forced).
+- **Custom** — manually confirmed to stay a custom (non-Lucide) icon, regardless of what the algorithm suggested.
+- **New** — discovered outside the original 404-icon scan (Material-UI components, repo asset SVGs, data-URI icons, other components). Reclassify these into High/Medium/Low/No match/Custom via the confidence dropdown as you review them, same as any other icon — the New tag just tracks that it wasn't part of the original audit.
+
+Adding more New-category icons later: append entries to `scripts/new_icons_baseline.json` (id, label, raw_name, preview_src as a data-URI, name_display, and an initial lucide guess), then rebuild.
 
 Visual similarity is shape-based (silhouette overlap) and has known blind spots: icons that are rotated or differ mainly in stroke thickness relative to their Lucide counterpart can score lower than they should. Always eyeball Low-tier and No-match icons rather than trusting the score alone.
