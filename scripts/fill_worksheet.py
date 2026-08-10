@@ -9,6 +9,13 @@ RESULTS = "/sessions/epic-loving-franklin/work/match_results.json"
 # its final match / confidence for each icon becomes the new published baseline,
 # so his review work survives every subsequent rebuild instead of being wiped out.
 REVIEWED_CSV = "/sessions/epic-loving-franklin/work/reviewed_overrides.csv"
+# Icons discovered outside the original 404 (Material-UI components, repo asset
+# SVGs, data-URI icons, other components) — no source files of our own, so each
+# entry carries its own preview image (usually an inline data-URI) captured once
+# and reused on every rebuild, same role match_results.json plays for the original set.
+NEW_ICONS_BASELINE = "/sessions/epic-loving-franklin/work/new_icons_baseline.json"
+
+VALID_TIERS = ("HIGH", "MEDIUM", "LOW", "NONE", "CUSTOM", "NEW")
 
 def load_reviewed_overrides(path):
     if not path or not os.path.exists(path):
@@ -21,13 +28,19 @@ def load_reviewed_overrides(path):
             if not ccf:
                 continue
             tier = (row.get("confidence") or "").strip().upper()
-            if tier not in ("HIGH", "MEDIUM", "LOW", "NONE", "CUSTOM"):
+            if tier not in VALID_TIERS:
                 continue
             lucide = (row.get("final_lucide_match") or "").strip() or None
             note = (row.get("note") or "").strip()
             overrides[(source, ccf)] = {"tier": tier, "lucide": lucide, "note": note}
     print(f"Loaded {len(overrides)} reviewed overrides from {path}")
     return overrides
+
+def load_new_icons_baseline(path):
+    if not path or not os.path.exists(path):
+        return []
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
 LUCIDE_SVG_DIR = "/sessions/epic-loving-franklin/node_modules/lucide-static/icons"
 LUCIDE_TAGS_PATH = "/sessions/epic-loving-franklin/node_modules/lucide-static/tags.json"
 SRC_WRAPPER_DIR = "/sessions/epic-loving-franklin/icons/wrapper-icons/wrapper-icons"
@@ -53,6 +66,7 @@ TIER_COLORS = {
     "LOW": ("#fdeaea", "#a13a3a", "Low — best effort, review"),
     "NONE": ("#eceff1", "#455a64", "No Lucide equivalent"),
     "CUSTOM": ("#f3ecfa", "#6b3fa0", "Custom icon"),
+    "NEW": ("#eef4ff", "#1a4fa0", "New — not in original worksheet"),
 }
 
 def label_for_src(src):
@@ -105,7 +119,7 @@ def copy_all_lucide_icons_and_build_index():
     print(f"Copied full Lucide set: {len(names)} icons")
     return index
 
-TIER_OPTIONS = [("HIGH", "High"), ("MEDIUM", "Medium"), ("LOW", "Low"), ("NONE", "No match"), ("CUSTOM", "Custom")]
+TIER_OPTIONS = [("HIGH", "High"), ("MEDIUM", "Medium"), ("LOW", "Low"), ("NONE", "No match"), ("CUSTOM", "Custom"), ("NEW", "New")]
 
 def build_tier_select(soup, current_tier):
     sel = soup.new_tag("select", **{"class": "tier-override-select", "onchange": "setTierOverride(this)"})
@@ -217,6 +231,41 @@ def build_suggestion_html(soup, r, override=None):
 
     return wrap, lucide_name
 
+def build_new_icon_cell(soup, entry, override):
+    """Builds a full .cell scaffold for an icon discovered outside the original
+    404 (mui/asset/datauri/component sources) — these have no pre-existing .cell
+    markup to inject into, so this constructs one from scratch, matching the same
+    structure/classes as the original cells exactly."""
+    cell = soup.new_tag("div", **{
+        "class": "cell",
+        "data-id": entry["id"],
+        "data-original-icon": entry.get("lucide") or "",
+        "data-original-tier": override["tier"],
+        "data-tier": override["tier"],
+    })
+    preview = soup.new_tag("div", **{"class": "preview"})
+    img = soup.new_tag("img", alt=entry.get("alt", entry["raw_name"]), loading="lazy", src=entry["preview_src"])
+    preview.append(img)
+    cell.append(preview)
+
+    name_div = soup.new_tag("div", **{"class": "name", "title": entry.get("alt", entry["raw_name"])})
+    name_div.string = entry.get("name_display", entry["raw_name"])
+    cell.append(name_div)
+
+    replace_div = soup.new_tag("div", **{"class": "replace", "contenteditable": "true",
+                                          "data-ph": "Lucide / Lyra name…"})
+    cell.append(replace_div)
+
+    suggestion, lname = build_suggestion_html(soup, None, override=override)
+    if lname:
+        replace_div.string = lname
+    elif override["tier"] == "CUSTOM":
+        replace_div["data-ph"] = "Custom icon — keep as-is"
+    elif override["tier"] == "NONE":
+        replace_div["data-ph"] = "No Lucide equivalent — keep custom"
+    cell.append(suggestion)
+    return cell, lname
+
 CHIP_STYLE_BLOCK = """
 <style>
   /* --- larger tile content: overrides the base worksheet stylesheet above --- */
@@ -243,6 +292,8 @@ CHIP_STYLE_BLOCK = """
   .tier-chip[data-tier="NONE"].active   { background:#455a64; color:#fff; }
   .tier-chip[data-tier="CUSTOM"]   { border-color:#6b3fa0; color:#6b3fa0; }
   .tier-chip[data-tier="CUSTOM"].active   { background:#6b3fa0; color:#fff; }
+  .tier-chip[data-tier="NEW"]    { border-color:#1a4fa0; color:#1a4fa0; }
+  .tier-chip[data-tier="NEW"].active    { background:#1a4fa0; color:#fff; }
   .tier-chip:not(.active) { opacity: .55; }
   .tier-badge.manual-override::after { content: " (manual)"; font-weight: 400; font-style: italic; opacity: .8; }
   .tier-override-select:focus { outline: 2px solid #166cca; }
@@ -306,6 +357,7 @@ TIER_FILTER_UI = """
   <button class="tier-chip active" data-tier="LOW" onclick="toggleChip(this)">Low</button>
   <button class="tier-chip active" data-tier="NONE" onclick="toggleChip(this)">No match</button>
   <button class="tier-chip active" data-tier="CUSTOM" onclick="toggleChip(this)">Custom</button>
+  <button class="tier-chip active" data-tier="NEW" onclick="toggleChip(this)">New</button>
   <span id="tier-count" style="font-size:12.5px;color:#5d6a79;margin-left:6px;"></span>
   <button onclick="resetTierOverridesOnly()" style="font-size:13px;padding:8px 14px;border:1px solid #c3c5c9;border-radius:6px;background:#fff;cursor:pointer;margin-left:auto;">Fix confidence levels</button>
   <button onclick="resetAllOverrides()" style="font-size:13px;padding:8px 14px;border:1px solid #c3c5c9;border-radius:6px;background:#fff;cursor:pointer;">Reset icon + confidence overrides</button>
@@ -324,9 +376,10 @@ TIER_LABEL_TEXT = {
     "LOW": "Low — best effort, review",
     "NONE": "No Lucide equivalent",
     "CUSTOM": "Custom icon",
+    "NEW": "New — not in original worksheet",
 }
-TIER_COLOR_TEXT = {"HIGH": "#1e7e34", "MEDIUM": "#8a6d00", "LOW": "#a13a3a", "NONE": "#455a64", "CUSTOM": "#6b3fa0"}
-TIER_BG_TEXT = {"HIGH": "#e6f4ea", "MEDIUM": "#fff8e1", "LOW": "#fdeaea", "NONE": "#eceff1", "CUSTOM": "#f3ecfa"}
+TIER_COLOR_TEXT = {"HIGH": "#1e7e34", "MEDIUM": "#8a6d00", "LOW": "#a13a3a", "NONE": "#455a64", "CUSTOM": "#6b3fa0", "NEW": "#1a4fa0"}
+TIER_BG_TEXT = {"HIGH": "#e6f4ea", "MEDIUM": "#fff8e1", "LOW": "#fdeaea", "NONE": "#eceff1", "CUSTOM": "#f3ecfa", "NEW": "#eef4ff"}
 
 NEW_FILTER_SCRIPT = f"""
 const TIER_LABELS = {json.dumps(TIER_LABEL_TEXT)};
@@ -637,7 +690,7 @@ def main():
     used_lucide = set()
     matched, unmatched = 0, 0
     reviewed_applied = 0
-    tier_counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0, "NONE": 0, "CUSTOM": 0}
+    tier_counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0, "NONE": 0, "CUSTOM": 0, "NEW": 0}
 
     for cell in soup.select(".cell"):
         img = cell.select_one(".preview img")
@@ -682,15 +735,44 @@ def main():
             replace_div["data-ph"] = "No Lucide equivalent — keep custom"
         replace_div.insert_after(suggestion)
 
+    # icons discovered outside the original 404 (mui/asset/datauri/component) —
+    # not present in SRC_HTML at all, so build their .cell markup from scratch
+    # and append it to the grid, using the reviewed CSV's "NEW" rows if present.
+    new_baseline = load_new_icons_baseline(NEW_ICONS_BASELINE)
+    grid = soup.select_one(".grid")
+    new_applied = 0
+    if new_baseline and grid:
+        for entry in new_baseline:
+            key = (entry["label"], entry["raw_name"])
+            override = reviewed.get(key)
+            if override:
+                new_applied += 1
+            else:
+                override = {"tier": "NEW", "lucide": entry.get("lucide"), "note": ""}
+            eff_tier = override["tier"]
+            tier_counts[eff_tier] += 1
+            new_cell, lname = build_new_icon_cell(soup, entry, override)
+            if lname:
+                used_lucide.add(lname)
+            grid.append(new_cell)
+        print(f"Appended {len(new_baseline)} previously-discovered icons ({new_applied} with reviewed overrides)")
+
     # header copy
     header_p = soup.select_one("header p")
     if header_p:
+        total_count = matched + len(new_baseline)
+        new_clause = (
+            f" {len(new_baseline)} more icons discovered outside the original scan (Material-UI "
+            "components, repo asset SVGs, data-URI icons, and other components) are filed under "
+            "the New filter chip below."
+        ) if new_baseline else ""
         header_p.string = (
-            "AW-60964 · 352 icon-library icons + 52 inline (hardcoded) icons = 404 total. The "
+            f"AW-60964 · 352 icon-library icons + 52 inline (hardcoded) icons = 404 total"
+            f"{', plus ' + str(len(new_baseline)) + ' newly discovered = ' + str(total_count) + ' total' if new_baseline else ''}. The "
             "ccf icon at the top of each box is fixed (that's the one being replaced) — below it "
             "is the suggested Lucide match (name + thumbnail + confidence). High/Medium = "
             "algorithmic name+shape match; Low = best-effort, please review; brand logos are "
-            "flagged with no forced match. Click \"Search Lucide icons…\" to look through the "
+            "flagged with no forced match." + new_clause + " Click \"Search Lucide icons…\" to look through the "
             "full Lucide set and swap in a different match, then use the small dropdown to set "
             "its confidence level, or mark it \"Custom\" if it should stay a custom (non-Lucide) "
             "icon — that files it under the Custom Icons filter chip instead. Use the small text "
